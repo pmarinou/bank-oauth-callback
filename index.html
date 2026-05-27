@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>OAuth Callback Handler</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0c0a08;
+    --surface: #15110d;
+    --surface-2: #1d1812;
+    --border: #2a231b;
+    --border-strong: #3d3326;
+    --text: #efe7d8;
+    --text-muted: #8c8270;
+    --text-faint: #5a5446;
+    --accent: #d4a056;
+    --accent-soft: #d4a05619;
+    --success: #7fb069;
+    --error: #d96450;
+    --warning: #e0a86b;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    background-image:
+      radial-gradient(circle at 20% 0%, rgba(212, 160, 86, 0.04) 0%, transparent 50%),
+      radial-gradient(circle at 80% 100%, rgba(212, 160, 86, 0.03) 0%, transparent 50%);
+  }
+
+  .container {
+    width: 100%;
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 48px 32px;
+    flex: 1;
+  }
+
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 48px;
+  }
+
+  .brand {
+    font-family: 'Fraunces', serif;
+    font-size: 20px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    color: var(--text);
+  }
+
+  .brand span {
+    color: var(--accent);
+  }
+
+  .meta {
+    font-size: 11px;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  .status-section {
+    margin-bottom: 48px;
+  }
+
+  .status-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+  }
+
+  .status-headline {
+    font-family: 'Fraunces', serif;
+    font-size: clamp(36px, 6vw, 64px);
+    font-weight: 400;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    color: var(--text);
+    margin-bottom: 16px;
+  }
+
+  .status-headline .accent { color: var(--accent); font-style: italic; }
+  .status-headline .success { color: var(--success); font-style: italic; }
+  .status-headline .error { color: var(--error); font-style: italic; }
+
+  .status-description {
+    font-size: 14px;
+    color: var(--text-muted);
+    max-width: 540px;
+  }
+
+  .field {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    margin-bottom: 16px;
+    overflow: hidden;
+    transition: border-color 0.15s ease;
+  }
+
+  .field:hover { border-color: var(--border-strong); }
+
+  .field.primary {
+    border-color: var(--accent);
+    background: linear-gradient(180deg, var(--accent-soft) 0%, var(--surface) 100%);
+  }
+
+  .field-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface-2);
+  }
+
+  .field.primary .field-header {
+    background: rgba(212, 160, 86, 0.08);
+    border-bottom-color: rgba(212, 160, 86, 0.2);
+  }
+
+  .field-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+
+  .field.primary .field-label { color: var(--accent); }
+
+  .field-value {
+    padding: 16px;
+    font-size: 14px;
+    word-break: break-all;
+    user-select: all;
+    color: var(--text);
+    min-height: 24px;
+  }
+
+  .field-value.empty {
+    color: var(--text-faint);
+    font-style: italic;
+    user-select: none;
+  }
+
+  .copy-btn {
+    background: transparent;
+    border: 1px solid var(--border-strong);
+    color: var(--text-muted);
+    padding: 4px 12px;
+    border-radius: 3px;
+    font-family: inherit;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .copy-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-soft);
+  }
+
+  .copy-btn.copied {
+    border-color: var(--success);
+    color: var(--success);
+    background: rgba(127, 176, 105, 0.1);
+  }
+
+  .copy-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+
+  .timer {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--warning);
+    margin-top: 12px;
+    padding: 10px 14px;
+    background: rgba(224, 168, 107, 0.06);
+    border: 1px solid rgba(224, 168, 107, 0.2);
+    border-radius: 3px;
+    display: inline-block;
+  }
+
+  .timer.expired {
+    color: var(--error);
+    background: rgba(217, 100, 80, 0.06);
+    border-color: rgba(217, 100, 80, 0.3);
+  }
+
+  .section-title {
+    font-family: 'Fraunces', serif;
+    font-size: 18px;
+    font-weight: 500;
+    margin: 48px 0 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+    letter-spacing: -0.01em;
+  }
+
+  .params-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  .params-table tr {
+    border-bottom: 1px solid var(--border);
+  }
+
+  .params-table tr:last-child { border-bottom: none; }
+
+  .params-table td {
+    padding: 12px 16px;
+    vertical-align: top;
+  }
+
+  .params-table td:first-child {
+    color: var(--text-muted);
+    width: 200px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .params-table td:last-child {
+    color: var(--text);
+    word-break: break-all;
+    user-select: all;
+  }
+
+  .no-params {
+    padding: 24px;
+    text-align: center;
+    color: var(--text-faint);
+    font-style: italic;
+    font-size: 13px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+  }
+
+  .full-url {
+    font-size: 12px;
+    color: var(--text-muted);
+    word-break: break-all;
+    padding: 12px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    user-select: all;
+  }
+
+  footer {
+    margin-top: 64px;
+    padding: 24px 32px;
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--text-faint);
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  footer .pulse {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    margin-right: 8px;
+    vertical-align: middle;
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 0.4; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.2); }
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .container > * {
+    animation: fadeIn 0.5s ease backwards;
+  }
+
+  .container > *:nth-child(1) { animation-delay: 0.05s; }
+  .container > *:nth-child(2) { animation-delay: 0.1s; }
+  .container > *:nth-child(3) { animation-delay: 0.2s; }
+  .container > *:nth-child(4) { animation-delay: 0.3s; }
+  .container > *:nth-child(5) { animation-delay: 0.4s; }
+
+  @media (max-width: 600px) {
+    .container { padding: 24px 16px; }
+    header { flex-direction: column; gap: 8px; align-items: flex-start; }
+    .params-table td:first-child { width: auto; display: block; padding-bottom: 4px; }
+    .params-table td { display: block; padding: 8px 12px; }
+  }
+</style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="brand">oauth<span>·</span>callback</div>
+      <div class="meta" id="timestamp">—</div>
+    </header>
+
+    <section class="status-section">
+      <div class="status-label" id="status-label">Status</div>
+      <h1 class="status-headline" id="status-headline">Awaiting<br><span class="accent">callback…</span></h1>
+      <p class="status-description" id="status-description">Open the OAuth authorization URL in this browser. The bank will redirect here after consent and the authorization code will appear below.</p>
+    </section>
+
+    <div id="primary-fields"></div>
+
+    <h2 class="section-title">All received parameters</h2>
+    <div id="all-params"></div>
+
+    <h2 class="section-title">Full callback URL</h2>
+    <div class="full-url" id="full-url">—</div>
+  </div>
+
+  <footer>
+    <span class="pulse"></span>OAuth Callback Receiver · Static · No server-side processing
+  </footer>
+
+<script>
+(function() {
+  'use strict';
+
+  // Parse query parameters from the URL
+  const params = new URLSearchParams(window.location.search);
+  const paramObj = {};
+  for (const [key, value] of params.entries()) {
+    paramObj[key] = value;
+  }
+
+  const hasCode = 'code' in paramObj;
+  const hasError = 'error' in paramObj;
+  const isEmpty = Object.keys(paramObj).length === 0;
+
+  // Set timestamp
+  const now = new Date();
+  document.getElementById('timestamp').textContent = now.toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
+
+  // Set full URL
+  document.getElementById('full-url').textContent = window.location.href;
+
+  // Set headline based on state
+  const statusLabel = document.getElementById('status-label');
+  const statusHeadline = document.getElementById('status-headline');
+  const statusDescription = document.getElementById('status-description');
+
+  if (hasError) {
+    statusLabel.textContent = 'Error';
+    statusHeadline.innerHTML = 'Authorization<br><span class="error">failed.</span>';
+    statusDescription.textContent = 'The OAuth server returned an error. See the parameters below for details.';
+    document.title = '✗ OAuth Error';
+  } else if (hasCode) {
+    statusLabel.textContent = 'Success';
+    statusHeadline.innerHTML = 'Authorization<br><span class="success">received.</span>';
+    statusDescription.textContent = 'Copy the code below and use it within 30–60 seconds to exchange for an access token.';
+    document.title = '✓ OAuth Code Received';
+  } else if (isEmpty) {
+    statusLabel.textContent = 'Idle';
+    statusHeadline.innerHTML = 'Awaiting<br><span class="accent">callback…</span>';
+    statusDescription.textContent = 'Open the OAuth authorization URL in this browser. The bank will redirect here after consent and the authorization code will appear below.';
+  } else {
+    statusLabel.textContent = 'Received';
+    statusHeadline.innerHTML = 'Parameters<br><span class="accent">received.</span>';
+    statusDescription.textContent = 'No code or error parameter detected, but the following data was received.';
+  }
+
+  // Helper to create a primary field for important values
+  function createField(label, value, isPrimary, fieldId) {
+    const field = document.createElement('div');
+    field.className = 'field' + (isPrimary ? ' primary' : '');
+
+    const header = document.createElement('div');
+    header.className = 'field-header';
+
+    const labelEl = document.createElement('span');
+    labelEl.className = 'field-label';
+    labelEl.textContent = label;
+    header.appendChild(labelEl);
+
+    if (value) {
+      const btn = document.createElement('button');
+      btn.className = 'copy-btn';
+      btn.textContent = 'Copy';
+      btn.setAttribute('data-target', fieldId);
+      btn.addEventListener('click', function() {
+        navigator.clipboard.writeText(value).then(function() {
+          btn.textContent = 'Copied';
+          btn.classList.add('copied');
+          setTimeout(function() {
+            btn.textContent = 'Copy';
+            btn.classList.remove('copied');
+          }, 2000);
+        }).catch(function() {
+          btn.textContent = 'Failed';
+        });
+      });
+      header.appendChild(btn);
+    }
+
+    field.appendChild(header);
+
+    const valueEl = document.createElement('div');
+    valueEl.className = 'field-value' + (value ? '' : ' empty');
+    valueEl.id = fieldId;
+    valueEl.textContent = value || '(not received)';
+    field.appendChild(valueEl);
+
+    return field;
+  }
+
+  // Render primary fields (code, state, error)
+  const primaryContainer = document.getElementById('primary-fields');
+  const primaryFields = ['code', 'state', 'error', 'error_description'];
+
+  primaryFields.forEach(function(name) {
+    if (name in paramObj) {
+      primaryContainer.appendChild(
+        createField(name, paramObj[name], name === 'code' || name === 'error', 'field-' + name)
+      );
+    }
+  });
+
+  // Add expiry timer if code is present
+  if (hasCode) {
+    const timer = document.createElement('div');
+    timer.className = 'timer';
+    timer.id = 'expiry-timer';
+    primaryContainer.appendChild(timer);
+
+    const startTime = Date.now();
+    const updateTimer = function() {
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      const remaining = 60 - elapsed;
+      if (remaining > 0) {
+        timer.textContent = '⏱ Authorization code typically expires in ~' + remaining + 's. Exchange it immediately.';
+      } else {
+        timer.textContent = '⚠ This code is likely expired. Repeat Step 3 to obtain a fresh one.';
+        timer.classList.add('expired');
+        clearInterval(timerInterval);
+      }
+    };
+    updateTimer();
+    const timerInterval = setInterval(updateTimer, 1000);
+  }
+
+  // Render all parameters table
+  const allParamsContainer = document.getElementById('all-params');
+  if (Object.keys(paramObj).length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'no-params';
+    empty.textContent = 'No query parameters present in the URL.';
+    allParamsContainer.appendChild(empty);
+  } else {
+    const table = document.createElement('table');
+    table.className = 'params-table';
+    Object.keys(paramObj).sort().forEach(function(key) {
+      const tr = document.createElement('tr');
+      const tdKey = document.createElement('td');
+      tdKey.textContent = key;
+      const tdVal = document.createElement('td');
+      tdVal.textContent = paramObj[key];
+      tr.appendChild(tdKey);
+      tr.appendChild(tdVal);
+      table.appendChild(tr);
+    });
+    allParamsContainer.appendChild(table);
+  }
+})();
+</script>
+</body>
+</html>
